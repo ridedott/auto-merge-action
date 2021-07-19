@@ -111,7 +111,11 @@ describe('merge', (): void => {
       .reply(StatusCodes.OK, validCommitResponse);
     nock('https://api.github.com').post('/graphql').reply(StatusCodes.OK);
 
-    await tryMerge(octokit, 3, pullRequestInformation);
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: false },
+      pullRequestInformation,
+    );
 
     expect(warningSpy).not.toHaveBeenCalled();
   });
@@ -146,7 +150,11 @@ describe('merge', (): void => {
       })
       .reply(StatusCodes.OK);
 
-    await tryMerge(octokit, 3, pullRequestInformation);
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: false },
+      pullRequestInformation,
+    );
   });
 
   it('does not approve pull requests that are not mergeable', async (): Promise<void> => {
@@ -167,7 +175,11 @@ describe('merge', (): void => {
       reviewEdges: [{ node: { state: 'APPROVED' } }],
     };
 
-    await tryMerge(octokit, 3, pullRequestInformation);
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: false },
+      pullRequestInformation,
+    );
 
     expect(infoSpy).toHaveBeenCalledWith(
       'Pull request is not in a mergeable state: CONFLICTING.',
@@ -192,9 +204,105 @@ describe('merge', (): void => {
       reviewEdges: [{ node: { state: 'APPROVED' } }],
     };
 
-    await tryMerge(octokit, 3, pullRequestInformation);
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: false },
+      pullRequestInformation,
+    );
 
     expect(infoSpy).toHaveBeenCalledWith('Pull request is already merged.');
+  });
+
+  it('does not approve pull requests for which status is BEHIND when requiresStrictStatusChecks is set to true', async (): Promise<void> => {
+    expect.assertions(1);
+
+    const pullRequestInformation: PullRequestInformation = {
+      authorLogin: 'dependabot',
+      commitMessage: COMMIT_MESSAGE,
+      commitMessageHeadline: COMMIT_HEADLINE,
+      mergeStateStatus: 'BEHIND',
+      mergeableState: 'MERGEABLE',
+      merged: false,
+      pullRequestId: PULL_REQUEST_ID,
+      pullRequestNumber: PULL_REQUEST_NUMBER,
+      pullRequestState: 'OPEN',
+      pullRequestTitle: 'bump @types/jest from 26.0.12 to 26.1.0',
+      repositoryName: REPOSITORY_NAME,
+      repositoryOwner: REPOSITORY_OWNER,
+      reviewEdges: [{ node: { state: 'APPROVED' } }],
+    };
+
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: true },
+      pullRequestInformation,
+    );
+
+    expect(infoSpy).toHaveBeenCalledWith(
+      'Pull request branch is behind base branch.',
+    );
+  });
+
+  it('does not approve pull requests for which status is not CLEAN when requiresStrictStatusChecks is set to true', async (): Promise<void> => {
+    expect.assertions(1);
+
+    const pullRequestInformation: PullRequestInformation = {
+      authorLogin: 'dependabot',
+      commitMessage: COMMIT_MESSAGE,
+      commitMessageHeadline: COMMIT_HEADLINE,
+      mergeStateStatus: 'DIRTY',
+      mergeableState: 'MERGEABLE',
+      merged: false,
+      pullRequestId: PULL_REQUEST_ID,
+      pullRequestNumber: PULL_REQUEST_NUMBER,
+      pullRequestState: 'OPEN',
+      pullRequestTitle: 'bump @types/jest from 26.0.12 to 26.1.0',
+      repositoryName: REPOSITORY_NAME,
+      repositoryOwner: REPOSITORY_OWNER,
+      reviewEdges: [{ node: { state: 'APPROVED' } }],
+    };
+
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: true },
+      pullRequestInformation,
+    );
+
+    expect(infoSpy).toHaveBeenCalledWith(
+      'Pull request cannot be merged cleanly. Current state: DIRTY.',
+    );
+  });
+
+  it('approves and merges pull requests for which status is CLEAN when requiresStrictStatusChecks is set to true', async (): Promise<void> => {
+    expect.assertions(0);
+
+    const pullRequestInformation: PullRequestInformation = {
+      authorLogin: 'dependabot',
+      commitMessage: COMMIT_MESSAGE,
+      commitMessageHeadline: COMMIT_HEADLINE,
+      mergeStateStatus: 'CLEAN',
+      mergeableState: 'MERGEABLE',
+      merged: false,
+      pullRequestId: PULL_REQUEST_ID,
+      pullRequestNumber: PULL_REQUEST_NUMBER,
+      pullRequestState: 'OPEN',
+      pullRequestTitle: 'bump @types/jest from 26.0.12 to 26.1.0',
+      repositoryName: REPOSITORY_NAME,
+      repositoryOwner: REPOSITORY_OWNER,
+      reviewEdges: [{ node: { state: 'APPROVED' } }],
+    };
+
+    nock('https://api.github.com')
+      .post('/graphql')
+      .reply(StatusCodes.OK, validCommitResponse)
+      .post('/graphql')
+      .reply(StatusCodes.OK);
+
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: true },
+      pullRequestInformation,
+    );
   });
 
   it('does not approve pull requests for which status is not clean', async (): Promise<void> => {
@@ -216,7 +324,11 @@ describe('merge', (): void => {
       reviewEdges: [{ node: { state: 'APPROVED' } }],
     };
 
-    await tryMerge(octokit, 3, pullRequestInformation);
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: true },
+      pullRequestInformation,
+    );
 
     expect(infoSpy).toHaveBeenCalledWith(
       'Pull request cannot be merged cleanly. Current state: UNKNOWN.',
@@ -241,13 +353,17 @@ describe('merge', (): void => {
       reviewEdges: [{ node: { state: 'APPROVED' } }],
     };
 
-    await tryMerge(octokit, 3, pullRequestInformation);
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: false },
+      pullRequestInformation,
+    );
 
     expect(infoSpy).toHaveBeenCalledWith('Pull request is not open: CLOSED.');
   });
 
   it('approves pull request and merges it', async (): Promise<void> => {
-    expect.assertions(1);
+    expect.assertions(0);
 
     const pullRequestInformation: PullRequestInformation = {
       authorLogin: 'dependabot',
@@ -255,19 +371,27 @@ describe('merge', (): void => {
       commitMessageHeadline: COMMIT_HEADLINE,
       mergeStateStatus: 'CLEAN',
       mergeableState: 'MERGEABLE',
-      merged: true,
+      merged: false,
       pullRequestId: PULL_REQUEST_ID,
       pullRequestNumber: PULL_REQUEST_NUMBER,
       pullRequestState: 'OPEN',
       pullRequestTitle: 'bump @types/jest from 26.0.12 to 26.1.0',
       repositoryName: REPOSITORY_NAME,
       repositoryOwner: REPOSITORY_OWNER,
-      reviewEdges: [{ node: { state: 'APPROVED' } }],
+      reviewEdges: [],
     };
 
-    await tryMerge(octokit, 3, pullRequestInformation);
+    nock('https://api.github.com')
+      .post('/graphql')
+      .reply(StatusCodes.OK, validCommitResponse)
+      .post('/graphql')
+      .reply(StatusCodes.OK);
 
-    expect(infoSpy).toHaveBeenLastCalledWith('Pull request is already merged.');
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: false },
+      pullRequestInformation,
+    );
   });
 
   it('does not merge if a commit was not created by the original author and ENABLED_FOR_MANUAL_CHANGES is not set to "true"', async (): Promise<void> => {
@@ -351,7 +475,11 @@ describe('merge', (): void => {
       .post('/graphql')
       .reply(StatusCodes.OK, commitsResponse);
 
-    await tryMerge(octokit, 3, pullRequestInformation);
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: false },
+      pullRequestInformation,
+    );
 
     expect(infoSpy).toHaveBeenCalledWith(
       `Pull request changes were not made by ${DEPENDABOT_GITHUB_LOGIN}.`,
@@ -425,7 +553,11 @@ describe('merge', (): void => {
       .post('/graphql')
       .reply(StatusCodes.OK, commitsResponse);
 
-    await tryMerge(octokit, 3, pullRequestInformation);
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: false },
+      pullRequestInformation,
+    );
 
     expect(warningSpy).toHaveBeenCalledWith(
       'Commit signature not present or invalid, regarding PR as modified.',
@@ -519,7 +651,11 @@ describe('merge', (): void => {
       .post('/graphql')
       .reply(StatusCodes.OK, commitsResponse);
 
-    await tryMerge(octokit, 3, pullRequestInformation);
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: false },
+      pullRequestInformation,
+    );
 
     expect(infoSpy).not.toHaveBeenCalledWith(
       `Pull request changes were not made by ${DEPENDABOT_GITHUB_LOGIN}.`,
@@ -554,7 +690,11 @@ describe('merge', (): void => {
       .post('/graphql')
       .reply(StatusCodes.OK, commitsResponse);
 
-    await tryMerge(octokit, 3, pullRequestInformation);
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: false },
+      pullRequestInformation,
+    );
 
     expect(warningSpy).toHaveBeenCalledWith(
       'Could not find PR commits, aborting.',
@@ -591,7 +731,11 @@ describe('merge', (): void => {
 
     useSetTimeoutImmediateInvocation();
 
-    await tryMerge(octokit, 2, pullRequestInformation);
+    await tryMerge(
+      octokit,
+      { maximumRetries: 2, requiresStrictStatusChecks: false },
+      pullRequestInformation,
+    );
 
     expect(infoSpy).toHaveBeenCalledWith(
       'An error ocurred while merging the Pull Request. This is usually caused by the base branch being out of sync with the target branch. In this case, the base branch must be rebased. Some tools, such as Dependabot, do that automatically.',
@@ -628,7 +772,11 @@ describe('merge', (): void => {
       .post('/graphql')
       .reply(403, '##[error]GraphqlError: This is a different error.');
 
-    await tryMerge(octokit, 3, pullRequestInformation);
+    await tryMerge(
+      octokit,
+      { maximumRetries: 3, requiresStrictStatusChecks: false },
+      pullRequestInformation,
+    );
 
     expect(infoSpy).toHaveBeenCalledWith(
       'An error ocurred while merging the Pull Request. This is usually caused by the base branch being out of sync with the target branch. In this case, the base branch must be rebased. Some tools, such as Dependabot, do that automatically.',
@@ -657,7 +805,11 @@ describe('merge', (): void => {
         reviewEdges: [],
       };
 
-      await tryMerge(octokit, 3, pullRequestInformation);
+      await tryMerge(
+        octokit,
+        { maximumRetries: 3, requiresStrictStatusChecks: true },
+        pullRequestInformation,
+      );
     });
   });
 });

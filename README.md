@@ -207,6 +207,24 @@ jobs:
 `GITHUB_LOGIN` option supports
 [micromatch](https://github.com/micromatch/micromatch).
 
+### Opting in for GitHub merge info preview API
+
+You may opt-in for using GitHub merge info preview API, which enables the action
+to respect strict branch protection rules configured for the repository
+(`Require status checks to pass before merging` and
+`Require branches to be up to date before merging` options).
+
+```yaml
+jobs:
+  merge-me:
+    steps:
+      - name: Merge me!
+        uses: ridedott/merge-me-action@v2
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_PREVIEW_API: true
+```
+
 ### Use of configurable pull request merge method
 
 By default, this GitHub Action assumes merge method is `SQUASH`. You can

@@ -34,9 +34,12 @@ export interface PullRequestInformation {
   reviewEdges: ReviewEdges;
 }
 
-interface PullRequest {
+export interface PullRequest {
   author: {
     login: string;
+  };
+  base: {
+    ref: string;
   };
   commits: {
     edges: Array<{

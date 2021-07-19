@@ -1,0 +1,36 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`getPullRequestInformation returns pull request information with mergeStateStatus field 1`] = `
+Object {
+  "authorLogin": "test-author",
+  "commitMessage": "test message",
+  "commitMessageHeadline": "test message headline",
+  "mergeStateStatus": "CLEAN",
+  "mergeableState": "MERGEABLE",
+  "merged": false,
+  "pullRequestId": "123",
+  "pullRequestNumber": 1,
+  "pullRequestState": "OPEN",
+  "pullRequestTitle": "test",
+  "repositoryName": "test-repository",
+  "repositoryOwner": "test-owner",
+  "reviewEdges": Array [],
+}
+`;
+
+exports[`getPullRequestInformation returns pull request information without mergeStateStatus field 1`] = `
+Object {
+  "authorLogin": "test-author",
+  "commitMessage": "test message",
+  "commitMessageHeadline": "test message headline",
+  "mergeableState": "MERGEABLE",
+  "merged": false,
+  "pullRequestId": "123",
+  "pullRequestNumber": 1,
+  "pullRequestState": "OPEN",
+  "pullRequestTitle": "test",
+  "repositoryName": "test-repository",
+  "repositoryOwner": "test-owner",
+  "reviewEdges": Array [],
+}
+`;

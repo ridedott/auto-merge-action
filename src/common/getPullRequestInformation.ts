@@ -8,46 +8,57 @@ import {
 
 const MERGEABLE_STATUS_UNKNOWN_ERROR = 'Mergeable state is not known yet.';
 
-const pullRequestFields = `{
-  author {
-    login
-  }
-  commits(last: 1) {
-    edges {
-      node {
-        commit {
-          author {
-            name
+const pullRequestFields = (mergeInfoPreviewEnabled: boolean): string => {
+  const fields = [
+    `author {
+       login
+    }`,
+    `commits(last: 1) {
+      edges {
+        node {
+          commit {
+            author {
+              name
+            }
+            messageHeadline
+            message
           }
-          messageHeadline
-          message
         }
       }
-    }
-  }
-  id
-  mergeable
-  merged
-  number
-  reviews(last: 1, states: APPROVED) {
-    edges {
-      node {
-        state
+    }`,
+    'id',
+    'mergeable',
+    'merged',
+    ...(mergeInfoPreviewEnabled ? ['mergeStateStatus'] : []),
+    'number',
+    `reviews(last: 1, states: APPROVED) {
+      edges {
+        node {
+          state
+        }
       }
-    }
-  }
-  state
-  title
-}`;
+    }`,
+    'state',
+    'title',
+  ];
 
-const findPullRequestInfoByNumberQuery = `
+  return `{
+    ${fields.join('\n')}
+  }`;
+};
+
+const findPullRequestInfoByNumberQuery = (
+  mergeInfoPreviewEnabled: boolean,
+): string => `
   query FindPullRequestInfoByNumber(
     $repositoryOwner: String!,
     $repositoryName: String!,
     $pullRequestNumber: Int!
   ) {
     repository(owner: $repositoryOwner, name: $repositoryName) {
-      pullRequest(number: $pullRequestNumber) ${pullRequestFields}
+      pullRequest(number: $pullRequestNumber) ${pullRequestFields(
+        mergeInfoPreviewEnabled,
+      )}
     }
   }
 `;
@@ -59,10 +70,22 @@ const getPullRequestInformationByPullRequestNumber = async (
     repositoryName: string;
     repositoryOwner: string;
   },
+  options: {
+    mergeInfoPreviewEnabled: boolean;
+  },
 ): Promise<PullRequestInformation | undefined> => {
   const response = await octokit.graphql<GraphQlQueryResponseData | null>(
-    findPullRequestInfoByNumberQuery,
-    query,
+    findPullRequestInfoByNumberQuery(options.mergeInfoPreviewEnabled),
+    {
+      ...query,
+      ...(options.mergeInfoPreviewEnabled
+        ? {
+            mediaType: {
+              previews: ['merge-info'],
+            },
+          }
+        : {}),
+    },
   );
 
   if (response === null || response.repository.pullRequest === null) {
@@ -101,7 +124,7 @@ const getPullRequestInformationByPullRequestNumber = async (
     authorLogin,
     commitMessage,
     commitMessageHeadline,
-    mergeStateStatus,
+    ...(mergeStateStatus !== undefined ? { mergeStateStatus } : {}),
     mergeableState,
     merged,
     pullRequestId,
@@ -121,10 +144,14 @@ export const getMergeablePullRequestInformationByPullRequestNumber = async (
     repositoryName: string;
     repositoryOwner: string;
   },
+  options: {
+    mergeInfoPreviewEnabled: boolean;
+  },
 ): Promise<PullRequestInformation | undefined> => {
   const pullRequestInformation = await getPullRequestInformationByPullRequestNumber(
     octokit,
     query,
+    options,
   );
 
   if (pullRequestInformation === undefined) {
